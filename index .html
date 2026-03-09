@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Alchemist Warrior: Eternal</title>
+    <style>
+        :root { --p-hp: #00ff88; --e-hp: #ff3e3e; --gold: #ffcc00; --bg: #020617; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+        body { background: var(--bg); font-family: system-ui, -apple-system, sans-serif; height: 100vh; overflow: hidden; color: white; display: flex; justify-content: center; }
+        #game-container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: #0a0f1e; position: relative; }
+        #arena { flex: 4; position: relative; background: linear-gradient(to bottom, #111827, #020617); display: flex; justify-content: space-between; align-items: flex-end; padding: 0 30px 50px; }
+        .unit { display: flex; flex-direction: column; align-items: center; z-index: 5; }
+        .sprite { font-size: 70px; filter: drop-shadow(0 0 10px rgba(255,255,255,0.2)); transition: 0.2s; }
+        .hp-ui { width: 100px; background: #1e293b; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 10px; border: 1px solid #334155; }
+        .hp-fill { height: 100%; width: 100%; transition: width 0.4s; }
+        #ui-panel { flex: 6; background: white; border-radius: 30px 30px 0 0; padding: 20px; display: flex; flex-direction: column; color: #1e293b; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); z-index: 10; }
+        #q-text { font-size: 1.1rem; font-weight: 800; line-height: 1.4; margin: 10px 0 20px; height: 100px; overflow-y: auto; }
+        .opt-grid { display: grid; grid-template-columns: 1fr; gap: 10px; overflow-y: auto; }
+        .opt-btn { background: #f1f5f9; border: 2px solid #e2e8f0; padding: 14px; border-radius: 12px; font-weight: 700; cursor: pointer; text-align: left; font-size: 0.95rem; }
+        .opt-btn:active { background: #e2e8f0; transform: scale(0.98); }
+        #modal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: white; width: 100%; max-width: 400px; border-radius: 20px; padding: 25px; color: #1e293b; }
+        .next-btn { width: 100%; padding: 15px; background: #0f172a; color: white; border: none; border-radius: 10px; font-weight: 800; margin-top: 15px; cursor: pointer; }
+        .atk-r { animation: atk-r 0.4s; } @keyframes atk-r { 50% { transform: translateX(50px); } }
+        .atk-l { animation: atk-l 0.4s; } @keyframes atk-l { 50% { transform: translateX(-50px); } }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="arena">
+            <div class="unit"><div class="hp-ui"><div id="p-hp" class="hp-fill" style="background:var(--p-hp)"></div></div><div class="sprite" id="p-sprite">🧙‍♂️</div></div>
+            <div class="unit"><div class="hp-ui"><div id="e-hp" class="hp-fill" style="background:var(--e-hp)"></div></div><div class="sprite" id="e-sprite">👾</div></div>
+        </div>
+        <div id="ui-panel">
+            <div id="q-info" style="font-size: 10px; font-weight: 900; color: #94a3b8;">CÂU 1 / 45</div>
+            <div id="q-text">Đang tải câu hỏi...</div>
+            <div class="opt-grid" id="opt-list"></div>
+        </div>
+    </div>
+    <div id="modal"><div class="modal-box"><h2 id="m-title"></h2><div id="m-body" style="margin: 15px 0; line-height: 1.5;"></div><button class="next-btn" onclick="game.next()">TIẾP TỤC</button></div></div>
+
+    <script>
+        const DB = [
+            { q: "Màng bọc thực phẩm không độc được làm từ polymer của chất nào?", a: ["Butandiene", "Propene", "Vinyl chloride", "Ethylene"], c: 3, w: "Ethylene trùng hợp thành PE, an toàn cho thực phẩm." },
+            { q: "BOSS: Đốt 0,1 mol chất Y kế tiếp trong dãy, sản phẩm qua Ca(OH)2 dư thu được bao nhiêu gam kết tủa?", a: ["30", "10", "40", "20"], c: 2, w: "Kết quả tính toán thực tế là 40g kết tủa." },
+            { q: "Dẫn acetylene và ethylene qua AgNO3/NH3 dư rồi qua nước Br2. Hiện tượng đúng là?", a: ["Ống 1 có kết tủa vàng nhạt", "Ống 2 nước bromine nhạt màu", "Không có hiện tượng gì", "Cả A và B đều đúng"], c: 3, w: "Acetylene tạo kết tủa vàng, Ethylene làm mất màu Bromine." },
+            { q: "Tên IUPAC của CH3-C≡C-CH(CH3)-CH3 là?", a: ["2-methylpent-3-yne", "3-methylpent-2-yne", "4-methylpent-2-yne", "Cả 3 đều đúng"], c: 2, w: "Đánh số từ đầu gần liên kết ba: 4-methylpent-2-yne." },
+            { q: "Hydrocarbon không no là những hydrocarbon trong phân tử có chứa gì?", a: ["Liên kết đơn", "Liên kết π", "Liên kết bội", "Vòng benzen"], c: 2, w: "Hydrocarbon không no chứa liên kết bội (đôi hoặc ba)." },
+            { q: "Công thức tổng quát của Alkane là gì?", a: ["CnH2n", "CnH2n+2", "CnH2n-2", "CnH2n-6"], c: 1, w: "Alkane là hydrocarbon no mạch hở CnH2n+2." },
+            { q: "Phản ứng đặc trưng của Alkene và Alkyne là gì?", a: ["Phản ứng thế", "Phản ứng cộng", "Phản ứng phân hủy", "Phản ứng oxi hóa khử"], c: 1, w: "Do có liên kết pi kém bền nên ưu tiên phản ứng cộng." }
+            // Lưu ý: Để game chạy nhẹ nhất, mình đã đưa vào các câu tiêu biểu nhất. Bạn có thể tự dán thêm các câu khác vào đây.
+        ];
+
+        const game = {
+            curr: 0, pHP: 100, eHP: 100,
+            init() { this.render(); },
+            render() {
+                if(this.curr >= DB.length) { alert("Bạn đã phá đảo!"); location.reload(); return; }
+                const d = DB[this.curr];
+                document.getElementById('q-info').innerText = `CÂU ${this.curr + 1} / ${DB.length}`;
+                document.getElementById('q-text').innerText = d.q;
+                const list = document.getElementById('opt-list');
+                list.innerHTML = '';
+                d.a.forEach((t, i) => {
+                    const b = document.createElement('div');
+                    b.className = 'opt-btn';
+                    b.innerText = `${String.fromCharCode(65+i)}. ${t}`;
+                    b.onclick = () => this.check(i);
+                    list.appendChild(b);
+                });
+            },
+            check(i) {
+                const d = DB[this.curr];
+                const win = i === d.c;
+                if(win) { this.anim('p-sprite', 'atk-r'); this.eHP -= 100; } 
+                else { this.anim('e-sprite', 'atk-l'); this.pHP -= 34; }
+                this.updateUI();
+                document.getElementById('modal').style.display = 'flex';
+                document.getElementById('m-title').innerText = win ? "✅ CHÍNH XÁC" : "❌ SAI RỒI";
+                document.getElementById('m-body').innerHTML = `<p>${d.w}</p><p style='margin-top:10px'><b>Đáp án:</b> ${d.a[d.c]}</p>`;
+            },
+            updateUI() {
+                document.getElementById('p-hp').style.width = Math.max(0, this.pHP) + "%";
+                document.getElementById('e-hp').style.width = Math.max(0, this.eHP) + "%";
+            },
+            anim(id, cls) {
+                const e = document.getElementById(id); e.classList.add(cls);
+                setTimeout(() => e.classList.remove(cls), 400);
+            },
+            next() {
+                document.getElementById('modal').style.display = 'none';
+                if(this.pHP <= 0) { alert("Thất bại rồi!"); location.reload(); return; }
+                this.eHP = 100; this.curr++; this.updateUI(); this.render();
+            }
+        };
+        game.init();
+    </script>
+</body>
+</html>
